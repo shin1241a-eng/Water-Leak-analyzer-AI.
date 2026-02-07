@@ -5,16 +5,26 @@ import os
 
 app = Flask(__name__)
 
-model = None  # ยังไม่โหลดตอนเปิดเซิร์ฟเวอร์
+MODEL_PATH = "model_v2.h5"
+model = None  # ยังไม่โหลด
 
-# 🔥 ฟังก์ชันโหลดโมเดลเมื่อจำเป็นเท่านั้น
+
+def download_model_if_needed():
+    if not os.path.exists(MODEL_PATH):
+        print("📥 Downloading model from Google Drive...")
+        import gdown
+        url = "https://drive.google.com/uc?id=1qEYZdn-Zm8PhfwaTib2dYlgU9DDajn8w"
+        gdown.download(url, MODEL_PATH, quiet=False)
+
+
 def get_model():
     global model
     if model is None:
-        print("📥 Loading model for first time...")
+        download_model_if_needed()
+        print("🧠 Loading model...")
         from tensorflow.keras.models import load_model
-        model = load_model("model_v2.h5")
-        print("✅ Model loaded!")
+        model = load_model(MODEL_PATH)
+        print("✅ Model loaded")
     return model
 
 
@@ -32,12 +42,10 @@ def analyze():
     filepath = "temp.wav"
     file.save(filepath)
 
-    # โหลดเสียง
     y, sr = librosa.load(filepath, sr=22050)
     mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=40)
     mfcc = np.mean(mfcc.T, axis=0)
 
-    # 🔥 โหลดโมเดลตอนนี้แหละ
     model = get_model()
 
     prediction = model.predict(np.expand_dims(mfcc, axis=0))
