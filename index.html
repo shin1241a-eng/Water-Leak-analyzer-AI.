@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI File Analyzer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+    <div class="container">
+        <h1>อัปโหลดไฟล์ให้ AI วิเคราะห์</h1>
+
+        <input type="file" id="fileInput" multiple accept=".wav">
+        <br><br>
+        <button onclick="uploadFiles()">อัปโหลดและวิเคราะห์</button>
+
+        <div class="result-box" id="resultBox" style="display:none;">
+            <h3>ผลการวิเคราะห์</h3>
+            <ul id="resultList"></ul>
+        </div>
+    </div>
+
+<script>
+async function uploadFiles() {
+    const files = document.getElementById("fileInput").files;
+    const resultBox = document.getElementById("resultBox");
+    const resultList = document.getElementById("resultList");
+
+    if (files.length === 0) {
+        alert("กรุณาเลือกไฟล์ก่อน");
+        return;
+    }
+
+    resultBox.style.display = "block";
+    resultList.innerHTML = "<li>กำลังวิเคราะห์...</li>";
+
+    let formData = new FormData();
+    for (let i = 0; i < files.length; i++) {
+        formData.append("files", files[i]);
+    }
+
+    const response = await fetch("/analyze", {
+        method: "POST",
+        body: formData
+    });
+
+    const results = await response.json();
+
+    resultList.innerHTML = "";
+
+    results.forEach(item => {
+        const li = document.createElement("li");
+        li.textContent = `${item.filename} → ${item.result}`;
+        resultList.appendChild(li);
+    });
+}
+</script>
+
+</body>
+</html>
