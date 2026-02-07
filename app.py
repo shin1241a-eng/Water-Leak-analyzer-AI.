@@ -4,6 +4,11 @@ import numpy as np
 import librosa
 import os
 import gdown
+from flask import send_from_directory
+
+@app.route('/')
+def home():
+    return send_from_directory('.', 'index.html')
 
 app = Flask(__name__)
 
@@ -46,3 +51,4 @@ def analyze():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000)
+
