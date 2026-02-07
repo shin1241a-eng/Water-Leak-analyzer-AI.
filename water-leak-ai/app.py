@@ -1,58 +1,86 @@
-from flask import Flask, request, jsonify
-import tensorflow as tf
-import numpy as np
-import librosa
+from flask import Flask, render_template, request, jsonify
 import os
-import gdown
-from flask import Flask, request, jsonify, send_from_directory
+import librosa
+import numpy as np
+from tensorflow.keras.models import load_model
 
-app = Flask(__name__, static_folder="static")
+app = Flask(__name__)
 
+UPLOAD_FOLDER = "uploads"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-MODEL_PATH = "model_v2.h5"
+# โหลดโมเดล
+model = load_model("model_v2.h5")
 
-@app.route('/')
-def home():
-    return send_from_directory('static', 'index.html')
+# ================= AI PART =================
+SR = 16000
+DURATION = 3
+SAMPLES = SR * DURATION
 
-# ดาวน์โหลดโมเดลจาก Google Drive ถ้ายังไม่มี
-if not os.path.exists(MODEL_PATH):
-    print("Downloading model...")
-    url = "https://drive.google.com/uc?id=1qEYZdn-Zm8PhfwaTib2dYlgU9DDajn8w"
-    gdown.download(url, MODEL_PATH, quiet=False)
+def preprocess_wav(path):
+    y, sr = librosa.load(path, sr=SR, mono=True)
 
-print("Loading model...")
-model = tf.keras.models.load_model(MODEL_PATH)
-print("Model loaded successfully!")
+    if len(y) < SAMPLES:
+        y = np.pad(y, (0, SAMPLES - len(y)))
+    else:
+        y = y[:SAMPLES]
 
-def extract_features(file_path):
-    y, sr = librosa.load(file_path, sr=22050)
-    mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=40)
-    mfcc = np.mean(mfcc.T, axis=0)
-    return mfcc.reshape(1, -1)
+    mel = librosa.feature.melspectrogram(
+        y=y,
+        sr=SR,
+        n_mels=128,
+        n_fft=1024,
+        hop_length=512
+    )
 
-@app.route('/analyze', methods=['POST'])
+    mel = librosa.power_to_db(mel)
+
+    if mel.shape[1] < 94:
+        mel = np.pad(mel, ((0, 0), (0, 94 - mel.shape[1])), mode='constant')
+    else:
+        mel = mel[:, :94]
+
+    return mel.astype(np.float32)
+
+def predict_wav(path):
+    mel = preprocess_wav(path)
+    mel = mel[np.newaxis, ..., np.newaxis]
+    prob = model.predict(mel)[0][0]
+    return prob
+
+def run_ai_model(filepath):
+    score = predict_wav(filepath)
+    if score > 0.5:
+        return "พบเสียงน้ำรั่ว (LEAK)"
+    else:
+        return "ไม่พบเสียงน้ำรั่ว (NORMAL)"
+
+# ================= WEB PART =================
+
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+@app.route("/analyze", methods=["POST"])
 def analyze():
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file uploaded'}), 400
+    files = request.files.getlist("files")
+    results = []
 
-    file = request.files['file']
-    file_path = "temp.wav"
-    file.save(file_path)
+    for file in files:
+        if file.filename == "":
+            continue
 
-    features = extract_features(file_path)
-    prediction = model.predict(features)
-    result = "Water Leak Detected" if prediction[0][0] > 0.5 else "No Leak"
+        filepath = os.path.join(UPLOAD_FOLDER, file.filename)
+        file.save(filepath)
 
-    return jsonify({'result': result})
+        result = run_ai_model(filepath)
 
+        results.append({
+            "filename": file.filename,
+            "result": result
+        })
+
+    return jsonify(results)
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
-
-
-
-
-
-
+    app.run(host="0.0.0.0", port=10000)
