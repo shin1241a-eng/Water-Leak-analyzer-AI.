@@ -1,98 +1,63 @@
-from flask import Flask, render_template, request, jsonify
 import os
-import librosa
 import numpy as np
+import librosa
+import tensorflow as tf
 import gdown
-from tensorflow.keras.models import load_model
+from flask import Flask, request, render_template, jsonify
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 
-UPLOAD_FOLDER = "uploads"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-# โหลดโมเดล
-MODEL_PATH = "model_v2.h5"
-FILE_ID = "1qEYZdn-Zm8PhfwaTib2dYlgU9DDajn8w"   # <<<<<< แก้ตรงนี้
+# ================== โหลดโมเดลจาก Google Drive ==================
+MODEL_PATH = "model.h5"
+FILE_ID = "1qEYZdn-Zm8PhfwaTib2dYlgU9DDajn8w"  # 🔥 ใส่ Google Drive FILE ID ตรงนี้
+MODEL_URL = f"https://drive.google.com/uc?id={1qEYZdn-Zm8PhfwaTib2dYlgU9DDajn8w}"
 
 if not os.path.exists(MODEL_PATH):
     print("Downloading model from Google Drive...")
-    url = f"https://drive.google.com/uc?id={FILE_ID}"
-    gdown.download(url, MODEL_PATH, quiet=False)
+    gdown.download(MODEL_URL, MODEL_PATH, quiet=False)
 
-print("Loading model...")
-model = load_model(MODEL_PATH)
-print("Model loaded!")
+print("Loading AI model...")
+model = tf.keras.models.load_model(MODEL_PATH)
+print("Model loaded successfully!")
 
-# ================= AI PART =================
-SR = 16000
-DURATION = 3
-SAMPLES = SR * DURATION
+# ================== ฟังก์ชันแปลงเสียง ==================
+def extract_features(file_path):
+    audio, sr = librosa.load(file_path, sr=22050)
+    mfccs = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=40)
+    mfccs_scaled = np.mean(mfccs.T, axis=0)
+    return mfccs_scaled.reshape(1, -1)
 
-def preprocess_wav(path):
-    y, sr = librosa.load(path, sr=SR, mono=True)
-
-    if len(y) < SAMPLES:
-        y = np.pad(y, (0, SAMPLES - len(y)))
-    else:
-        y = y[:SAMPLES]
-
-    mel = librosa.feature.melspectrogram(
-        y=y,
-        sr=SR,
-        n_mels=128,
-        n_fft=1024,
-        hop_length=512
-    )
-
-    mel = librosa.power_to_db(mel)
-
-    if mel.shape[1] < 94:
-        mel = np.pad(mel, ((0, 0), (0, 94 - mel.shape[1])), mode='constant')
-    else:
-        mel = mel[:, :94]
-
-    return mel.astype(np.float32)
-
-def predict_wav(path):
-    mel = preprocess_wav(path)
-    mel = mel[np.newaxis, ..., np.newaxis]
-    prob = model.predict(mel)[0][0]
-    return prob
-
-def run_ai_model(filepath):
-    score = predict_wav(filepath)
-    if score > 0.5:
-        return "พบเสียงน้ำรั่ว (LEAK)"
-    else:
-        return "ไม่พบเสียงน้ำรั่ว (NORMAL)"
-
-# ================= WEB PART =================
-
+# ================== หน้าเว็บหลัก ==================
 @app.route("/")
-def index():
+def home():
     return render_template("index.html")
 
+# ================== วิเคราะห์เสียง ==================
 @app.route("/analyze", methods=["POST"])
 def analyze():
-    files = request.files.getlist("files")
-    results = []
+    if "file" not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
 
-    for file in files:
-        if file.filename == "":
-            continue
+    file = request.files["file"]
+    filepath = "temp.wav"
+    file.save(filepath)
 
-        filepath = os.path.join(UPLOAD_FOLDER, file.filename)
-        file.save(filepath)
+    features = extract_features(filepath)
+    prediction = model.predict(features)[0][0]
 
-        result = run_ai_model(filepath)
+    os.remove(filepath)
 
-        results.append({
-            "filename": file.filename,
-            "result": result
-        })
+    result = "Leak Detected" if prediction > 0.5 else "No Leak Detected"
+    confidence = float(prediction)
 
-    return jsonify(results)
+    return jsonify({
+        "result": result,
+        "confidence": round(confidence * 100, 2)
+    })
 
+# ================== รันบน Render ==================
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
-
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
