@@ -17,7 +17,7 @@ if not os.path.exists(MODEL_PATH):
 
 print("Loading model...")
 model = tf.keras.models.load_model(MODEL_PATH)
-print("Model loaded!")
+print("Model loaded successfully!")
 
 def extract_features(file_path):
     y, sr = librosa.load(file_path, sr=22050)
@@ -34,21 +34,15 @@ def analyze():
     filepath = "temp.wav"
     file.save(filepath)
 
-    try:
-        features = extract_features(filepath)
-        prediction = model.predict(features)
-        score = float(prediction[0][0])
+    features = extract_features(filepath)
+    prediction = model.predict(features)[0][0]
 
-        if score > 0.5:
-            result = f"พบเสียงน้ำรั่ว (ความมั่นใจ {score:.2f})"
-        else:
-            result = f"ไม่พบเสียงน้ำรั่ว (ความมั่นใจ {score:.2f})"
+    if prediction > 0.5:
+        result = f"พบเสียงน้ำรั่ว (ความมั่นใจ {prediction:.2f})"
+    else:
+        result = f"ไม่พบเสียงน้ำรั่ว (ความมั่นใจ {prediction:.2f})"
 
-        return jsonify({"result": result})
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
+    return jsonify({"result": result})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000)
