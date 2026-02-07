@@ -1,20 +1,42 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+import tensorflow as tf
 import numpy as np
 import librosa
-import tensorflow as tf
 import os
 
-app = Flask(__name__)
-CORS(app)
-
-# โหลดโมเดลตอนเซิร์ฟเวอร์เริ่มทำงาน
 model = tf.keras.models.load_model("model_v2.h5")
 
+def extract_features(file_path):
+    y, sr = librosa.load(file_path, sr=22050)
+    mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=40)
+    mfcc = np.mean(mfcc.T, axis=0)
+    return mfcc.reshape(1, -1)
 
-@app.route('/')
-def home():
-    return "Water Leak AI server is running"
+
+
+@app.route('/analyze', methods=['POST'])
+def analyze():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+
+    file = request.files['file']
+    filepath = "temp.wav"
+    file.save(filepath)
+
+    try:
+        features = extract_features(filepath)
+        prediction = model.predict(features)
+        score = float(prediction[0][0])
+
+        if score > 0.5:
+            result = f"พบเสียงน้ำรั่ว (ความมั่นใจ {score:.2f})"
+        else:
+            result = f"ไม่พบเสียงน้ำรั่ว (ความมั่นใจ {score:.2f})"
+
+        return jsonify({"result": result})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route('/analyze', methods=['POST'])
 def analyze():
@@ -43,5 +65,6 @@ if __name__ == '__main__':
 # รันเว็บ
 if __name__ == "__main__":
     app.run(debug=True)
+
 
 
