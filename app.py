@@ -34,25 +34,23 @@ def extract_features(file_path):
 @app.route('/analyze', methods=['POST'])
 def analyze():
     if 'file' not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
+        return jsonify({'error': 'No file uploaded'}), 400
 
     file = request.files['file']
-    filepath = "temp.wav"
-    file.save(filepath)
+    file_path = "temp.wav"
+    file.save(file_path)
 
-    features = extract_features(filepath)
-    prediction = model.predict(features)[0][0]
+    features = extract_features(file_path)
+    prediction = model.predict(features)
+    result = "Water Leak Detected" if prediction[0][0] > 0.5 else "No Leak"
 
-    if prediction > 0.5:
-        result = f"พบเสียงน้ำรั่ว (ความมั่นใจ {prediction:.2f})"
-    else:
-        result = f"ไม่พบเสียงน้ำรั่ว (ความมั่นใจ {prediction:.2f})"
+    return jsonify({'result': result})
 
-    return jsonify({"result": result})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
 
 
