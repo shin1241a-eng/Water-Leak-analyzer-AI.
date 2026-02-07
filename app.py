@@ -12,7 +12,7 @@ MODEL_PATH = "model_v2.h5"
 
 @app.route('/')
 def home():
-    return send_from_directory('.', 'index.html')
+    return send_from_directory('static', 'index.html')
 
 # ดาวน์โหลดโมเดลจาก Google Drive ถ้ายังไม่มี
 if not os.path.exists(MODEL_PATH):
@@ -52,6 +52,7 @@ def analyze():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
 
 
