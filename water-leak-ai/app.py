@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, jsonify
 import os
 import librosa
 import numpy as np
+import gdown
 from tensorflow.keras.models import load_model
 
 app = Flask(__name__)
@@ -10,7 +11,17 @@ UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # โหลดโมเดล
-model = load_model("model_v2.h5")
+MODEL_PATH = "model_v2.h5"
+FILE_ID = "1qEYZdn-Zm8PhfwaTib2dYlgU9DDajn8w"   # <<<<<< แก้ตรงนี้
+
+if not os.path.exists(MODEL_PATH):
+    print("Downloading model from Google Drive...")
+    url = f"https://drive.google.com/uc?id={FILE_ID}"
+    gdown.download(url, MODEL_PATH, quiet=False)
+
+print("Loading model...")
+model = load_model(MODEL_PATH)
+print("Model loaded!")
 
 # ================= AI PART =================
 SR = 16000
@@ -84,3 +95,4 @@ def analyze():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
+
