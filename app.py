@@ -1,9 +1,16 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+import numpy as np
+import librosa
+import tensorflow as tf
 import os
 
 app = Flask(__name__)
-CORS(app)  # อนุญาตให้เว็บเรียกข้ามโดเมนได้
+CORS(app)
+
+# โหลดโมเดลตอนเซิร์ฟเวอร์เริ่มทำงาน
+model = tf.keras.models.load_model("model_v2.h5")
+
 
 @app.route('/')
 def home():
@@ -36,4 +43,5 @@ if __name__ == '__main__':
 # รันเว็บ
 if __name__ == "__main__":
     app.run(debug=True)
+
 
