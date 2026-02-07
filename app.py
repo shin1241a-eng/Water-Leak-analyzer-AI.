@@ -7,6 +7,13 @@ import tensorflow as tf
 
 MODEL_PATH = "model_v2.h5"
 
+if not os.path.exists(MODEL_PATH):
+    url = "https://drive.google.com/uc?id=รหัสไฟล์"
+    gdown.download(url, MODEL_PATH, quiet=False)
+
+model = tf.keras.models.load_model(MODEL_PATH)
+
+
 # ถ้ายังไม่มีไฟล์โมเดล ให้โหลดจาก Google Drive
 if not os.path.exists(MODEL_PATH):
     print("Downloading model from Google Drive...")
@@ -79,6 +86,7 @@ if __name__ == '__main__':
 # รันเว็บ
 if __name__ == "__main__":
     app.run(debug=True)
+
 
 
 
