@@ -12,7 +12,8 @@ CORS(app)
 # ================== โหลดโมเดลจาก Google Drive ==================
 MODEL_PATH = "model.h5"
 FILE_ID = "1qEYZdn-Zm8PhfwaTib2dYlgU9DDajn8w"  # 🔥 ใส่ Google Drive FILE ID ตรงนี้
-MODEL_URL = f"https://drive.google.com/uc?id={1qEYZdn-Zm8PhfwaTib2dYlgU9DDajn8w}"
+MODEL_URL = "https://drive.google.com/uc?id=1qEYZdn-Zm8PhfwaTib2dYlgU9DDajn8w"
+
 
 if not os.path.exists(MODEL_PATH):
     print("Downloading model from Google Drive...")
@@ -61,3 +62,4 @@ def analyze():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
