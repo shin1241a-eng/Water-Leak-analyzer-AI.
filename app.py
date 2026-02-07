@@ -2,6 +2,20 @@ import tensorflow as tf
 import numpy as np
 import librosa
 import os
+import gdown
+import tensorflow as tf
+
+MODEL_PATH = "model_v2.h5"
+
+# ถ้ายังไม่มีไฟล์โมเดล ให้โหลดจาก Google Drive
+if not os.path.exists(MODEL_PATH):
+    print("Downloading model from Google Drive...")
+    url = "https://drive.google.com/uc?id=1qEYZdn-Zm8PhfwaTib2dYlgU9DDajn8w"
+    gdown.download(url, MODEL_PATH, quiet=False)
+
+print("Loading model...")
+model = tf.keras.models.load_model(MODEL_PATH)
+print("Model loaded successfully!")
 
 model = tf.keras.models.load_model("model_v2.h5")
 
@@ -65,6 +79,7 @@ if __name__ == '__main__':
 # รันเว็บ
 if __name__ == "__main__":
     app.run(debug=True)
+
 
 
 
