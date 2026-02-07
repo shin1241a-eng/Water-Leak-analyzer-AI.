@@ -6,13 +6,13 @@ import os
 import gdown
 from flask import send_from_directory
 
-@app.route('/')
-def home():
-    return send_from_directory('.', 'index.html')
-
 app = Flask(__name__)
 
 MODEL_PATH = "model_v2.h5"
+
+@app.route('/')
+def home():
+    return send_from_directory('.', 'index.html')
 
 # ดาวน์โหลดโมเดลจาก Google Drive ถ้ายังไม่มี
 if not os.path.exists(MODEL_PATH):
@@ -51,4 +51,5 @@ def analyze():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000)
+
 
