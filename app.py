@@ -1,75 +1,66 @@
 import os
 import numpy as np
 import librosa
-import soundfile as sf
-from flask import Flask, request, render_template
 import tensorflow as tf
+import requests
+from flask import Flask, request, render_template
 
 app = Flask(__name__)
 
-# ===================== โหลดโมเดล TFLite =====================
-interpreter = tf.lite.Interpreter(model_path="model_v2.tflite")
-interpreter.allocate_tensors()
+MODEL_PATH = "model_v2.h5"
+MODEL_URL = "https://huggingface.co/getsuck/water_leak_ai/resolve/main/model_v2.h5"
 
-input_details = interpreter.get_input_details()
-output_details = interpreter.get_output_details()
+model = None  # ยังไม่โหลดตอนเปิดเว็บ
 
-# ===================== ฟังก์ชันแปลงเสียงเป็น Features =====================
+
+# 📥 โหลดโมเดลเมื่อจำเป็น
+def download_model():
+    if not os.path.exists(MODEL_PATH):
+        print("📥 Downloading model from HuggingFace...")
+        r = requests.get(MODEL_URL, stream=True)
+        with open(MODEL_PATH, "wb") as f:
+            for chunk in r.iter_content(chunk_size=8192):
+                if chunk:
+                    f.write(chunk)
+        print("✅ Model downloaded")
+
+
+def load_model():
+    global model
+    if model is None:
+        download_model()
+        print("🧠 Loading AI model...")
+        model = tf.keras.models.load_model(MODEL_PATH)
+    return model
+
+
+# 🎵 แปลงเสียงเป็น features แบบเดียวกับที่เทรน
 def extract_features(file_path):
-    y, sr = librosa.load(file_path, sr=22050)
+    audio, sr = librosa.load(file_path, sr=22050)
+    mfccs = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=40)
+    mfccs_scaled = np.mean(mfccs.T, axis=0)
+    return np.expand_dims(mfccs_scaled, axis=0)
 
-    mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=40)
-    mfcc_scaled = np.mean(mfcc.T, axis=0)
 
-    return mfcc_scaled
-
-# ===================== ฟังก์ชันทำนาย =====================
-def predict_audio(features):
-    input_data = np.array(features, dtype=np.float32)
-    input_data = np.expand_dims(input_data, axis=0)
-
-    interpreter.set_tensor(input_details[0]['index'], input_data)
-    interpreter.invoke()
-    output_data = interpreter.get_tensor(output_details[0]['index'])
-
-    return output_data
-
-# ===================== หน้าเว็บหลัก =====================
 @app.route("/", methods=["GET", "POST"])
-def index():
+def home():
     prediction = None
 
     if request.method == "POST":
-        if "file" not in request.files:
-            return render_template("index.html", prediction="No file uploaded")
-
         file = request.files["file"]
+        if file:
+            filepath = "temp.wav"
+            file.save(filepath)
 
-        if file.filename == "":
-            return render_template("index.html", prediction="No selected file")
-
-        filepath = os.path.join("temp.wav")
-        file.save(filepath)
-
-        try:
             features = extract_features(filepath)
-            result = predict_audio(features)
+            ai_model = load_model()
+            result = ai_model.predict(features)
 
-            class_index = np.argmax(result)
-
-            if class_index == 0:
-                prediction = "🚰 Leak Detected"
-            else:
-                prediction = "✅ No Leak"
-
-        except Exception as e:
-            prediction = f"Error: {str(e)}"
-
-        if os.path.exists(filepath):
-            os.remove(filepath)
+            classes = ["No Leak", "Leak"]
+            prediction = classes[np.argmax(result)]
 
     return render_template("index.html", prediction=prediction)
 
-# ===================== รันเซิร์ฟเวอร์ =====================
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    app.run(debug=True)
