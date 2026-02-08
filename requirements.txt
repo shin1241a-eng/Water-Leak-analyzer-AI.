@@ -1,9 +1,6 @@
 flask
-flask-cors
 numpy
 librosa
-scikit-learn
 soundfile
-tensorflow
-gdown
 gunicorn
+tflite-runtime
