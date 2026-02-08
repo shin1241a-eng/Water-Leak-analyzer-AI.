@@ -1,66 +1,49 @@
 import os
+import urllib.request
 import numpy as np
 import librosa
 import tensorflow as tf
-import requests
-from flask import Flask, request, render_template
+from flask import Flask, request, jsonify, render_template
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 
 MODEL_PATH = "model_v2.h5"
-MODEL_URL = "https://huggingface.co/getsuck/water_leak_ai/resolve/main/model_v2.h5"
+MODEL_URL = "https://huggingface.co/USERNAME/REPO_NAME/resolve/main/model_v2.h5"
 
-model = None  # ยังไม่โหลดตอนเปิดเว็บ
+# โหลดโมเดลครั้งเดียวตอนเริ่มเซิร์ฟเวอร์
+if not os.path.exists(MODEL_PATH):
+    print("📥 Downloading model from HuggingFace...")
+    urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
 
+print("🧠 Loading model...")
+model = tf.keras.models.load_model(MODEL_PATH)
 
-# 📥 โหลดโมเดลเมื่อจำเป็น
-def download_model():
-    if not os.path.exists(MODEL_PATH):
-        print("📥 Downloading model from HuggingFace...")
-        r = requests.get(MODEL_URL, stream=True)
-        with open(MODEL_PATH, "wb") as f:
-            for chunk in r.iter_content(chunk_size=8192):
-                if chunk:
-                    f.write(chunk)
-        print("✅ Model downloaded")
-
-
-def load_model():
-    global model
-    if model is None:
-        download_model()
-        print("🧠 Loading AI model...")
-        model = tf.keras.models.load_model(MODEL_PATH)
-    return model
-
-
-# 🎵 แปลงเสียงเป็น features แบบเดียวกับที่เทรน
 def extract_features(file_path):
     audio, sr = librosa.load(file_path, sr=22050)
     mfccs = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=40)
-    mfccs_scaled = np.mean(mfccs.T, axis=0)
-    return np.expand_dims(mfccs_scaled, axis=0)
+    return np.mean(mfccs.T, axis=0).reshape(1, -1)
 
-
-@app.route("/", methods=["GET", "POST"])
+@app.route("/")
 def home():
-    prediction = None
+    return render_template("index.html")
 
-    if request.method == "POST":
-        file = request.files["file"]
-        if file:
-            filepath = "temp.wav"
-            file.save(filepath)
+@app.route("/predict", methods=["POST"])
+def predict():
+    if "file" not in request.files:
+        return jsonify({"error": "No file uploaded"})
 
-            features = extract_features(filepath)
-            ai_model = load_model()
-            result = ai_model.predict(features)
+    file = request.files["file"]
+    filepath = "temp.wav"
+    file.save(filepath)
 
-            classes = ["No Leak", "Leak"]
-            prediction = classes[np.argmax(result)]
+    features = extract_features(filepath)
+    prediction = model.predict(features)
+    label = int(np.argmax(prediction))
 
-    return render_template("index.html", prediction=prediction)
-
+    classes = ["leak", "no_leak"]
+    return jsonify({"prediction": classes[label]})
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run()
