@@ -1,6 +1,9 @@
 flask
+flask-cors
+gunicorn
 numpy
 librosa
 soundfile
-gunicorn
-tflite-runtime
+scikit-learn
+tensorflow-cpu==2.15.0
+gdown
