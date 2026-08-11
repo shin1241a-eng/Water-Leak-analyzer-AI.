@@ -10,7 +10,15 @@ app = Flask(__name__)
 CORS(app)
 
 MODEL_PATH = "model_v2.h5"
-MODEL_URL = "https://huggingface.co/USERNAME/REPO_NAME/resolve/main/model_v2.h5"
+
+if not os.path.exists(MODEL_PATH):
+    gdown.download(
+        "GOOGLE_DRIVE_FILE_URL",
+        MODEL_PATH,
+        quiet=False
+    )
+
+model = load_model(MODEL_PATH)
 
 # โหลดโมเดลครั้งเดียวตอนเริ่มเซิร์ฟเวอร์
 if not os.path.exists(MODEL_PATH):
